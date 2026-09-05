@@ -110,6 +110,13 @@ export interface ContenidoEvento {
   galeria?: string[]
   /** URL publica de un audio del bucket `eventos`, para el fondo musical. */
   musica_url?: string
+  /**
+   * URL publica de un video del bucket `eventos`, para la portada. Si esta
+   * cargado, reemplaza al sobre animado en CSS: se reproduce una vez y se
+   * desvanece hacia el contenido. El video se genera por fuera (Veo,
+   * Gemini, etc.) y se sube ya armado con los nombres de la pareja.
+   */
+  video_apertura_url?: string
 }
 
 export interface Evento {

@@ -5,6 +5,7 @@ import { CuentaRegresiva } from '@/components/publico/CuentaRegresiva'
 import { FormularioRsvp } from '@/components/publico/FormularioRsvp'
 import { Galeria } from '@/components/publico/Galeria'
 import { inicialesDe, Sobre } from '@/components/publico/Sobre'
+import { VideoApertura } from '@/components/publico/VideoApertura'
 import {
   Floritura,
   Hexagono,
@@ -56,21 +57,39 @@ export default function Elegante({
   const monograma = useMemo(() => inicialesDe(titulo), [titulo])
 
   const [mostrarSobre, setMostrarSobre] = useState(true)
-  const [sonando, setSonando] = useState(true)
+  // Arranca en false: en el sobre en CSS pasa a true apenas se toca el
+  // lacre (autoplay real); con video de apertura queda en false hasta que
+  // el invitado toca el boton flotante -- reproducir el video ya usa el
+  // gesto del usuario para su propio audio, asi que la musica de fondo no
+  // arranca sola encima para no pisarse con ese sonido.
+  const [sonando, setSonando] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   function alAbrirSobre() {
     // Tiene que llamarse DENTRO del click del lacre: es el gesto que exige
     // el navegador para permitir reproducir audio sin que lo bloquee.
-    audioRef.current?.play().catch(() => {
-      // Algunos navegadores igual lo bloquean (ej. modo ahorro de datos).
-      // La invitacion sigue andando, simplemente sin musica.
-    })
+    audioRef.current
+      ?.play()
+      .then(() => setSonando(true))
+      .catch(() => {
+        // Algunos navegadores igual lo bloquean (ej. modo ahorro de datos).
+        // La invitacion sigue andando, simplemente sin musica.
+      })
   }
 
+  /**
+   * Sirve tanto para arrancar la musica por primera vez (video de apertura,
+   * o si el autoplay del sobre fue bloqueado) como para silenciarla despues:
+   * un <audio> pausado no "suena" aunque se le saque el mute.
+   */
   function alternarMusica() {
     const audio = audioRef.current
     if (!audio) return
+    if (audio.paused) {
+      audio.muted = false
+      audio.play().then(() => setSonando(true))
+      return
+    }
     audio.muted = !audio.muted
     setSonando(!audio.muted)
   }
@@ -79,16 +98,19 @@ export default function Elegante({
     <div ref={ref} className="min-h-screen overflow-hidden bg-[#fdfbf7] text-[#4a4038]" style={PALETA}>
       {c.musica_url && <audio ref={audioRef} src={c.musica_url} loop preload="auto" />}
 
-      {mostrarSobre && (
-        <Sobre
-          monograma={monograma}
-          titulo={titulo}
-          frase={c.frase}
-          fechaLarga={formatFechaLarga(evento.fecha_evento)}
-          onAbrir={alAbrirSobre}
-          onCerrado={() => setMostrarSobre(false)}
-        />
-      )}
+      {mostrarSobre &&
+        (c.video_apertura_url ? (
+          <VideoApertura src={c.video_apertura_url} onFin={() => setMostrarSobre(false)} />
+        ) : (
+          <Sobre
+            monograma={monograma}
+            titulo={titulo}
+            frase={c.frase}
+            fechaLarga={formatFechaLarga(evento.fecha_evento)}
+            onAbrir={alAbrirSobre}
+            onCerrado={() => setMostrarSobre(false)}
+          />
+        ))}
 
       {c.musica_url && !mostrarSobre && <BotonMusica sonando={sonando} onToggle={alternarMusica} />}
 

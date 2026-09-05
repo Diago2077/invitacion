@@ -81,11 +81,48 @@ export async function subirMusica(
   return { url: data.publicUrl }
 }
 
+function extensionVideo(mime: string, nombreOriginal: string): string {
+  const porMime: Record<string, string> = {
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+    'video/quicktime': 'mov',
+  }
+  if (porMime[mime]) return porMime[mime]
+  const ext = nombreOriginal.split('.').pop()
+  return ext && ext.length <= 5 ? ext.toLowerCase() : 'mp4'
+}
+
 /**
- * Borra un archivo del bucket a partir de su URL publica (foto o audio: el
- * bucket es el mismo y el parseo no depende del tipo). Silencioso ante
- * errores: que quede un archivo huerfano es mucho menos grave que frenar al
- * usuario mientras edita el contenido.
+ * Sube el video de apertura de una plantilla (ej. "Elegante"), al mismo
+ * bucket publico que las fotos. El limite es bastante mas generoso: un
+ * video corto ya pesa varios MB aunque este comprimido.
+ */
+export async function subirVideo(
+  eventoId: string,
+  archivo: File,
+): Promise<{ url: string } | { error: string }> {
+  if (archivo.size > 30 * 1024 * 1024) {
+    return { error: 'El video supera los 30 MB. Comprimilo o acortalo antes de subirlo.' }
+  }
+
+  const ext = extensionVideo(archivo.type, archivo.name)
+  const path = `${eventoId}/video-apertura-${Date.now()}.${ext}`
+
+  const { error } = await supabase.storage.from(BUCKET).upload(path, archivo, {
+    contentType: archivo.type || undefined,
+    upsert: false,
+  })
+  if (error) return { error: 'No se pudo subir el video.' }
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+  return { url: data.publicUrl }
+}
+
+/**
+ * Borra un archivo del bucket a partir de su URL publica (foto, audio o
+ * video: el bucket es el mismo y el parseo no depende del tipo). Silencioso
+ * ante errores: que quede un archivo huerfano es mucho menos grave que
+ * frenar al usuario mientras edita el contenido.
  */
 export async function eliminarFoto(url: string | null | undefined): Promise<void> {
   if (!url) return

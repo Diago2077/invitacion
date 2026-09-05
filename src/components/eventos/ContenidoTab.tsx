@@ -1,4 +1,4 @@
-import { ImagePlus, Loader2, Music, Plus, Trash2, X } from 'lucide-react'
+import { Film, ImagePlus, Loader2, Music, Plus, Trash2, X } from 'lucide-react'
 import { useRef, useState, type ChangeEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -7,7 +7,7 @@ import { Field, Input, Select, Textarea } from '@/components/ui/field'
 import { useEventos } from '@/hooks/useEventos'
 import type { Acto, ContenidoEvento, Evento, FamiliaPersona } from '@/lib/database.types'
 import { paraInputDateTime } from '@/lib/format'
-import { eliminarFoto, subirFoto, subirMusica } from '@/lib/storage'
+import { eliminarFoto, subirFoto, subirMusica, subirVideo } from '@/lib/storage'
 import { PLANTILLAS } from '@/plantillas'
 
 /**
@@ -34,6 +34,7 @@ export function ContenidoTab({
   const inputFoto = useRef<HTMLInputElement>(null)
   const inputGaleria = useRef<HTMLInputElement>(null)
   const inputMusica = useRef<HTMLInputElement>(null)
+  const inputVideo = useRef<HTMLInputElement>(null)
 
   const [plantilla, setPlantilla] = useState(evento.plantilla)
   const [c, setC] = useState<ContenidoEvento>(evento.contenido ?? {})
@@ -41,6 +42,7 @@ export function ContenidoTab({
   const [subiendo, setSubiendo] = useState(false)
   const [subiendoGaleria, setSubiendoGaleria] = useState(false)
   const [subiendoMusica, setSubiendoMusica] = useState(false)
+  const [subiendoVideo, setSubiendoVideo] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
   function set<K extends keyof ContenidoEvento>(campo: K, valor: ContenidoEvento[K]) {
@@ -126,6 +128,24 @@ export function ContenidoTab({
     }
     const anterior = c.musica_url
     set('musica_url', resultado.url)
+    if (anterior) eliminarFoto(anterior)
+  }
+
+  async function onVideo(e: ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0]
+    e.target.value = ''
+    if (!archivo) return
+
+    setSubiendoVideo(true)
+    const resultado = await subirVideo(evento.id, archivo)
+    setSubiendoVideo(false)
+
+    if ('error' in resultado) {
+      toast.error(resultado.error)
+      return
+    }
+    const anterior = c.video_apertura_url
+    set('video_apertura_url', resultado.url)
     if (anterior) eliminarFoto(anterior)
   }
 
@@ -248,8 +268,59 @@ export function ContenidoTab({
 
       <Card>
         <CardHeader
+          title="Video de apertura"
+          description='Reemplaza al sobre animado por un video que generes vos (Veo, Gemini, un editor). Solo en la plantilla "Elegante".'
+        />
+        <CardBody className="space-y-3">
+          {c.video_apertura_url ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <video src={c.video_apertura_url} controls className="h-40 rounded-md border border-border" />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const url = c.video_apertura_url
+                  set('video_apertura_url', undefined)
+                  eliminarFoto(url)
+                }}
+                title="Quitar video"
+              >
+                <X />
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Sin video, se usa el sobre animado de siempre.
+            </p>
+          )}
+          <input
+            ref={inputVideo}
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+            className="hidden"
+            onChange={onVideo}
+          />
+          <Button variant="outline" onClick={() => inputVideo.current?.click()} disabled={subiendoVideo}>
+            {subiendoVideo ? <Loader2 className="animate-spin" /> : <Film />}
+            {subiendoVideo ? 'Subiendo…' : c.video_apertura_url ? 'Cambiar video' : 'Subir video'}
+          </Button>
+          <div className="rounded-md border border-border bg-secondary/50 p-3 text-xs text-muted-foreground">
+            <p className="font-medium text-foreground">Como armarlo para que quede bien:</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+              <li>Formato vertical 9:16 (como una historia), para llenar la pantalla del celular.</li>
+              <li>5 a 10 segundos: alcanza para el efecto, sin hacer esperar al invitado.</li>
+              <li>Formato de archivo MP4 (el mas compatible). Evitá .mov si podés.</li>
+              <li>Hasta 30 MB. Si pesa mas, comprimilo antes de subirlo.</li>
+              <li>El invitado toca para reproducirlo (con sonido) y al terminar pasa solo a la invitacion.</li>
+            </ul>
+          </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
           title="Musica de fondo"
-          description='Arranca sola cuando el invitado toca el sello del sobre (solo en la plantilla "Elegante").'
+          description='Musica ambiente para el resto de la invitacion (solo en la plantilla "Elegante"). Si hay video de apertura, no se mezcla con su audio: el invitado la activa con el boton flotante cuando quiera.'
         />
         <CardBody className="space-y-3">
           {c.musica_url ? (
