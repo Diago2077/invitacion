@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Cormorant Garamond", ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+}
+
+:root {
+  --radius: 0.5rem;
+
+  --background: oklch(0.985 0.004 40);
+  --foreground: oklch(0.22 0.015 25);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.015 25);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.015 25);
+
+  --primary: oklch(0.47 0.115 15);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.96 0.006 40);
+  --secondary-foreground: oklch(0.3 0.02 25);
+  --muted: oklch(0.96 0.006 40);
+  --muted-foreground: oklch(0.53 0.015 30);
+  --accent: oklch(0.95 0.018 20);
+  --accent-foreground: oklch(0.34 0.055 18);
+
+  --destructive: oklch(0.56 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.55 0.13 155);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.68 0.15 70);
+  --warning-foreground: oklch(0.2 0.03 70);
+
+  --border: oklch(0.9 0.008 35);
+  --input: oklch(0.9 0.008 35);
+  --ring: oklch(0.47 0.115 15);
+}
+
+.dark {
+  --background: oklch(0.18 0.012 25);
+  --foreground: oklch(0.95 0.005 40);
+  --card: oklch(0.23 0.015 25);
+  --card-foreground: oklch(0.95 0.005 40);
+  --popover: oklch(0.23 0.015 25);
+  --popover-foreground: oklch(0.95 0.005 40);
+
+  --primary: oklch(0.68 0.12 15);
+  --primary-foreground: oklch(0.16 0.02 20);
+  --secondary: oklch(0.28 0.018 25);
+  --secondary-foreground: oklch(0.95 0.005 40);
+  --muted: oklch(0.28 0.018 25);
+  --muted-foreground: oklch(0.69 0.015 30);
+  --accent: oklch(0.31 0.03 20);
+  --accent-foreground: oklch(0.95 0.005 40);
+
+  --destructive: oklch(0.62 0.19 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.65 0.14 155);
+  --success-foreground: oklch(0.15 0.02 155);
+  --warning: oklch(0.75 0.15 70);
+  --warning-foreground: oklch(0.2 0.03 70);
+
+  --border: oklch(0.33 0.018 25);
+  --input: oklch(0.33 0.018 25);
+  --ring: oklch(0.68 0.12 15);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Los contadores y las cifras de la tabla se leen mejor a ancho fijo */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/*
+ * Aparicion por scroll de la invitacion publica. El observer solo agrega
+ * .visible; si el visitante pidio menos movimiento, el contenido ya arranca
+ * en su lugar (no hay animacion que "termine" y lo deje invisible).
+ */
+@layer components {
+  .aparece {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.7s ease-out,
+      transform 0.7s ease-out;
+  }
+
+  .aparece.visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .aparece {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+}
