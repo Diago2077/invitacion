@@ -1,7 +1,7 @@
 import { SkipForward } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-const DURACION_FUNDIDO = 550
+const DURACION_FUNDIDO = 1300
 
 /**
  * Portada en video: se reproduce una vez y se desvanece hacia el contenido.
