@@ -65,6 +65,28 @@
   --border: oklch(0.9 0.008 35);
   --input: oklch(0.9 0.008 35);
   --ring: oklch(0.47 0.115 15);
+
+  /*
+   * Paleta de las PLANTILLAS PUBLICAS (la invitacion que abre el invitado),
+   * separada a proposito de --primary/--foreground/etc de arriba: esos son
+   * del panel y reaccionan al modo oscuro del que administra, pero la
+   * invitacion nunca cambia de aspecto segun el celular del invitado.
+   *
+   * Los valores de aca son los de la plantilla "Clasica" (el rosewood de
+   * siempre). Componentes compartidos entre plantillas (CuentaRegresiva,
+   * FormularioRsvp) usan estas variables en vez de hex fijo; cada plantilla
+   * nueva las pisa en su propio nodo raiz con un inline style, asi que
+   * agregar una plantilla con otra paleta no toca a las demas.
+   */
+  --inv-primary: #8a3b4a;
+  --inv-primary-dark: #75313e;
+  --inv-secondary: #5c534f;
+  --inv-text: #3a2f2e;
+  --inv-muted: #8c7a74;
+  --inv-border: #e6d8d2;
+  --inv-border-strong: #d9c6bf;
+  --inv-hover: #f7efec;
+  --inv-placeholder: #b9a9a3;
 }
 
 .dark {
@@ -144,5 +166,20 @@
       transform: none;
       transition: none;
     }
+  }
+
+  /*
+   * Inputs del formulario publico (RSVP). El placeholder y el foco no se
+   * pueden fijar por variable via clases de Tailwind (placeholder:text-*
+   * no acepta un color dinamico comodo), asi que van aca.
+   */
+  .campo-inv {
+    transition: border-color 0.15s ease;
+  }
+  .campo-inv::placeholder {
+    color: var(--inv-placeholder);
+  }
+  .campo-inv:focus {
+    border-color: var(--inv-primary);
   }
 }

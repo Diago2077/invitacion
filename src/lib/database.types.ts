@@ -61,6 +61,17 @@ export interface Acto {
   direccion: string
   /** Link de Google Maps tal como sale del boton "Compartir". */
   maps_url: string
+  /** Frase o cita corta debajo del lugar (una lectura, un versiculo, etc). */
+  cita?: string
+}
+
+/** Uno de los novios/protagonistas, para la seccion "nuestras familias". */
+export interface FamiliaPersona {
+  nombre: string
+  /** Texto libre: 'Cyril Philip y Soly Joseph'. */
+  padres?: string
+  /** Texto libre: 'Sruthi y Sreya'. */
+  hermanos?: string
 }
 
 /**
@@ -90,6 +101,15 @@ export interface ContenidoEvento {
   /** A quien escribir por dudas. */
   contacto_nombre?: string
   contacto_telefono?: string
+  /** Para la plantilla "elegante": seccion "nuestras familias". */
+  familia_1?: FamiliaPersona
+  familia_2?: FamiliaPersona
+  /** Parrafo tipo "como nos conocimos". */
+  historia?: string
+  /** URLs publicas del bucket `eventos`, en el orden en que se muestran. */
+  galeria?: string[]
+  /** URL publica de un audio del bucket `eventos`, para el fondo musical. */
+  musica_url?: string
 }
 
 export interface Evento {

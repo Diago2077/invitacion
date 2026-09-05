@@ -1,13 +1,13 @@
-import { ImagePlus, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { ImagePlus, Loader2, Music, Plus, Trash2, X } from 'lucide-react'
 import { useRef, useState, type ChangeEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Field, Input, Select, Textarea } from '@/components/ui/field'
 import { useEventos } from '@/hooks/useEventos'
-import type { Acto, ContenidoEvento, Evento } from '@/lib/database.types'
+import type { Acto, ContenidoEvento, Evento, FamiliaPersona } from '@/lib/database.types'
 import { paraInputDateTime } from '@/lib/format'
-import { eliminarFoto, subirFoto } from '@/lib/storage'
+import { eliminarFoto, subirFoto, subirMusica } from '@/lib/storage'
 import { PLANTILLAS } from '@/plantillas'
 
 /**
@@ -17,6 +17,11 @@ import { PLANTILLAS } from '@/plantillas'
  * hoy es que todo lo que escribe acá termina en `eventos.contenido` (jsonb),
  * que es exactamente lo que va a leer y escribir ese editor cuando exista --
  * asi que nada de esto se tira despues.
+ *
+ * Los campos de familias/historia/galeria/musica solo los usa la plantilla
+ * "Elegante" hoy, pero se muestran siempre: quedan guardados en el evento
+ * aunque este en "Clasica", y aparecen solos si mas adelante se cambia de
+ * plantilla.
  */
 export function ContenidoTab({
   evento,
@@ -27,15 +32,23 @@ export function ContenidoTab({
 }) {
   const { actualizar } = useEventos()
   const inputFoto = useRef<HTMLInputElement>(null)
+  const inputGaleria = useRef<HTMLInputElement>(null)
+  const inputMusica = useRef<HTMLInputElement>(null)
 
   const [plantilla, setPlantilla] = useState(evento.plantilla)
   const [c, setC] = useState<ContenidoEvento>(evento.contenido ?? {})
   const [actos, setActos] = useState<Acto[]>(evento.contenido?.actos ?? [])
   const [subiendo, setSubiendo] = useState(false)
+  const [subiendoGaleria, setSubiendoGaleria] = useState(false)
+  const [subiendoMusica, setSubiendoMusica] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
   function set<K extends keyof ContenidoEvento>(campo: K, valor: ContenidoEvento[K]) {
     setC((prev) => ({ ...prev, [campo]: valor }))
+  }
+
+  function setFamilia(cual: 'familia_1' | 'familia_2', campo: keyof FamiliaPersona, valor: string) {
+    setC((prev) => ({ ...prev, [cual]: { ...prev[cual], [campo]: valor } }))
   }
 
   function setActo(id: string, campo: keyof Acto, valor: string) {
@@ -52,6 +65,7 @@ export function ContenidoTab({
         lugar: '',
         direccion: '',
         maps_url: '',
+        cita: '',
       },
     ])
   }
@@ -73,6 +87,45 @@ export function ContenidoTab({
     // subida, la invitacion sigue teniendo su portada.
     const anterior = c.imagen_portada
     set('imagen_portada', resultado.url)
+    if (anterior) eliminarFoto(anterior)
+  }
+
+  async function onGaleria(e: ChangeEvent<HTMLInputElement>) {
+    const archivos = [...(e.target.files ?? [])]
+    e.target.value = ''
+    if (archivos.length === 0) return
+
+    setSubiendoGaleria(true)
+    const nuevas: string[] = []
+    for (const archivo of archivos) {
+      const resultado = await subirFoto(evento.id, archivo)
+      if ('error' in resultado) toast.error(resultado.error)
+      else nuevas.push(resultado.url)
+    }
+    setSubiendoGaleria(false)
+    if (nuevas.length > 0) set('galeria', [...(c.galeria ?? []), ...nuevas])
+  }
+
+  function quitarDeGaleria(url: string) {
+    set('galeria', (c.galeria ?? []).filter((u) => u !== url))
+    eliminarFoto(url)
+  }
+
+  async function onMusica(e: ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0]
+    e.target.value = ''
+    if (!archivo) return
+
+    setSubiendoMusica(true)
+    const resultado = await subirMusica(evento.id, archivo)
+    setSubiendoMusica(false)
+
+    if ('error' in resultado) {
+      toast.error(resultado.error)
+      return
+    }
+    const anterior = c.musica_url
+    set('musica_url', resultado.url)
     if (anterior) eliminarFoto(anterior)
   }
 
@@ -109,7 +162,14 @@ export function ContenidoTab({
         <CardHeader title="Portada" description="Lo primero que se ve al abrir el link." />
         <CardBody className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Plantilla">
+            <Field
+              label="Plantilla"
+              hint={
+                plantilla === 'elegante'
+                  ? 'Suma sobre animado, musica, familias, historia y galeria.'
+                  : undefined
+              }
+            >
               <Select value={plantilla} onChange={(e) => setPlantilla(e.target.value)}>
                 {Object.entries(PLANTILLAS).map(([valor, { label }]) => (
                   <option key={valor} value={valor}>
@@ -188,6 +248,127 @@ export function ContenidoTab({
 
       <Card>
         <CardHeader
+          title="Musica de fondo"
+          description='Arranca sola cuando el invitado toca el sello del sobre (solo en la plantilla "Elegante").'
+        />
+        <CardBody className="space-y-3">
+          {c.musica_url ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <audio src={c.musica_url} controls className="h-9 max-w-xs" />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const url = c.musica_url
+                  set('musica_url', undefined)
+                  eliminarFoto(url)
+                }}
+                title="Quitar musica"
+              >
+                <X />
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Sin musica, la invitacion abre en silencio.</p>
+          )}
+          <input
+            ref={inputMusica}
+            type="file"
+            accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav,.mp3,.m4a"
+            className="hidden"
+            onChange={onMusica}
+          />
+          <Button
+            variant="outline"
+            onClick={() => inputMusica.current?.click()}
+            disabled={subiendoMusica}
+          >
+            {subiendoMusica ? <Loader2 className="animate-spin" /> : <Music />}
+            {subiendoMusica ? 'Subiendo…' : c.musica_url ? 'Cambiar musica' : 'Subir musica'}
+          </Button>
+          <p className="text-xs text-muted-foreground">Hasta 10 MB. Un mp3 corto y comprimido alcanza.</p>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Nuestras familias"
+          description='Opcional. Se muestra como "Nuestras familias" (solo en "Elegante").'
+        />
+        <CardBody className="grid gap-6 sm:grid-cols-2">
+          <BloqueFamilia
+            titulo="Novio/a 1"
+            persona={c.familia_1 ?? { nombre: '' }}
+            onChange={(campo, valor) => setFamilia('familia_1', campo, valor)}
+          />
+          <BloqueFamilia
+            titulo="Novio/a 2"
+            persona={c.familia_2 ?? { nombre: '' }}
+            onChange={(campo, valor) => setFamilia('familia_2', campo, valor)}
+          />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader title="Nuestra historia" description="Un parrafo tipo 'como nos conocimos'." />
+        <CardBody>
+          <Textarea
+            value={c.historia ?? ''}
+            onChange={(e) => set('historia', e.target.value)}
+            placeholder="Nos conocimos en…"
+          />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Galeria de fotos"
+          description="Un carrusel con las fotos que elijas, en este orden."
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => inputGaleria.current?.click()}
+              disabled={subiendoGaleria}
+            >
+              {subiendoGaleria ? <Loader2 className="animate-spin" /> : <Plus />}
+              {subiendoGaleria ? 'Subiendo…' : 'Agregar fotos'}
+            </Button>
+          }
+        />
+        <CardBody>
+          <input
+            ref={inputGaleria}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/avif"
+            multiple
+            className="hidden"
+            onChange={onGaleria}
+          />
+          {!c.galeria || c.galeria.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Todavia no cargaste fotos.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+              {c.galeria.map((url) => (
+                <div key={url} className="group relative overflow-hidden rounded-md border border-border">
+                  <img src={url} alt="" className="aspect-square w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => quitarDeGaleria(url)}
+                    className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    title="Quitar"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
           title="Cuando y donde"
           description="La ceremonia, la fiesta, el civil: uno por cada lugar."
           action={
@@ -259,6 +440,17 @@ export function ContenidoTab({
                     placeholder="https://maps.app.goo.gl/…"
                   />
                 </Field>
+                <Field
+                  label="Cita o frase (opcional)"
+                  hint='Una lectura, un versiculo: "Elegante" la muestra debajo del lugar.'
+                  className="sm:col-span-2"
+                >
+                  <Input
+                    value={acto.cita ?? ''}
+                    onChange={(e) => setActo(acto.id, 'cita', e.target.value)}
+                    placeholder="Lo que Dios ha unido, que no lo separe el hombre."
+                  />
+                </Field>
               </div>
             </div>
           ))}
@@ -317,6 +509,39 @@ export function ContenidoTab({
           {guardando ? 'Guardando…' : 'Guardar cambios'}
         </Button>
       </div>
+    </div>
+  )
+}
+
+function BloqueFamilia({
+  titulo,
+  persona,
+  onChange,
+}: {
+  titulo: string
+  persona: FamiliaPersona
+  onChange: (campo: keyof FamiliaPersona, valor: string) => void
+}) {
+  return (
+    <div className="space-y-3 rounded-md border border-border p-4">
+      <p className="text-xs font-medium text-muted-foreground">{titulo}</p>
+      <Field label="Nombre">
+        <Input value={persona.nombre ?? ''} onChange={(e) => onChange('nombre', e.target.value)} />
+      </Field>
+      <Field label="Padres" hint="Texto libre, tal como se muestra.">
+        <Input
+          value={persona.padres ?? ''}
+          onChange={(e) => onChange('padres', e.target.value)}
+          placeholder="Juan Perez y Maria Gomez"
+        />
+      </Field>
+      <Field label="Hermanos">
+        <Input
+          value={persona.hermanos ?? ''}
+          onChange={(e) => onChange('hermanos', e.target.value)}
+          placeholder="Sofia y Martin"
+        />
+      </Field>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import Clasica from './Clasica'
+import Elegante from './Elegante'
 import type { PropsPlantilla } from './tipos'
 
 /**
@@ -11,6 +12,7 @@ import type { PropsPlantilla } from './tipos'
 export const PLANTILLAS: Record<string, { label: string; componente: ComponentType<PropsPlantilla> }> =
   {
     clasica: { label: 'Clasica', componente: Clasica },
+    elegante: { label: 'Elegante (sobre animado + musica)', componente: Elegante },
   }
 
 export const PLANTILLA_POR_DEFECTO = 'clasica'

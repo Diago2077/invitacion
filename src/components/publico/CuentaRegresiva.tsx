@@ -28,7 +28,11 @@ export function CuentaRegresiva({ fecha }: { fecha: string }) {
   if (Number.isNaN(hasta)) return null
 
   if (t.terminado) {
-    return <p className="text-center font-serif text-2xl italic text-[#8a3b4a]">¡Llego el dia!</p>
+    return (
+      <p className="text-center font-serif text-2xl italic" style={{ color: 'var(--inv-primary)' }}>
+        ¡Llego el dia!
+      </p>
+    )
   }
 
   const bloques = [
@@ -43,12 +47,18 @@ export function CuentaRegresiva({ fecha }: { fecha: string }) {
       {bloques.map((b) => (
         <div
           key={b.label}
-          className="min-w-16 rounded-lg border border-[#e6d8d2] bg-white/70 px-3 py-2.5 text-center sm:min-w-20"
+          className="min-w-16 rounded-lg border bg-white/70 px-3 py-2.5 text-center sm:min-w-20"
+          style={{ borderColor: 'var(--inv-border)' }}
         >
-          <p className="tabular font-serif text-2xl leading-none text-[#8a3b4a] sm:text-3xl">
+          <p
+            className="tabular font-serif text-2xl leading-none sm:text-3xl"
+            style={{ color: 'var(--inv-primary)' }}
+          >
             {String(b.valor).padStart(2, '0')}
           </p>
-          <p className="mt-1 text-[10px] uppercase tracking-widest text-[#8c7a74]">{b.label}</p>
+          <p className="mt-1 text-[10px] uppercase tracking-widest" style={{ color: 'var(--inv-muted)' }}>
+            {b.label}
+          </p>
         </div>
       ))}
     </div>

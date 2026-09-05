@@ -42,9 +42,49 @@ export async function subirFoto(
   return { url: data.publicUrl }
 }
 
+function extensionAudio(mime: string, nombreOriginal: string): string {
+  const porMime: Record<string, string> = {
+    'audio/mpeg': 'mp3',
+    'audio/mp4': 'm4a',
+    'audio/x-m4a': 'm4a',
+    'audio/ogg': 'ogg',
+    'audio/wav': 'wav',
+  }
+  if (porMime[mime]) return porMime[mime]
+  const ext = nombreOriginal.split('.').pop()
+  return ext && ext.length <= 5 ? ext.toLowerCase() : 'mp3'
+}
+
 /**
- * Borra una foto a partir de su URL publica. Silencioso ante errores: que
- * quede un archivo huerfano en el bucket es mucho menos grave que frenar al
+ * Sube la musica de fondo de una plantilla (ej. "Elegante"), al mismo bucket
+ * publico que las fotos. El limite es mas generoso que el de una foto: una
+ * cancion comprimida en 128kbps pesa bastante mas que una imagen.
+ */
+export async function subirMusica(
+  eventoId: string,
+  archivo: File,
+): Promise<{ url: string } | { error: string }> {
+  if (archivo.size > 10 * 1024 * 1024) {
+    return { error: 'El audio supera los 10 MB. Proba con una version mas corta o mas comprimida.' }
+  }
+
+  const ext = extensionAudio(archivo.type, archivo.name)
+  const path = `${eventoId}/musica-${Date.now()}.${ext}`
+
+  const { error } = await supabase.storage.from(BUCKET).upload(path, archivo, {
+    contentType: archivo.type || undefined,
+    upsert: false,
+  })
+  if (error) return { error: 'No se pudo subir el audio.' }
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+  return { url: data.publicUrl }
+}
+
+/**
+ * Borra un archivo del bucket a partir de su URL publica (foto o audio: el
+ * bucket es el mismo y el parseo no depende del tipo). Silencioso ante
+ * errores: que quede un archivo huerfano es mucho menos grave que frenar al
  * usuario mientras edita el contenido.
  */
 export async function eliminarFoto(url: string | null | undefined): Promise<void> {
