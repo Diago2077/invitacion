@@ -5,32 +5,41 @@ import { CuentaRegresiva } from '@/components/publico/CuentaRegresiva'
 import { FormularioRsvp } from '@/components/publico/FormularioRsvp'
 import { Galeria } from '@/components/publico/Galeria'
 import { inicialesDe, Sobre } from '@/components/publico/Sobre'
+import {
+  Floritura,
+  Hexagono,
+  IconoAnillos,
+  IconoBrindis,
+  IconoVestimenta,
+  RamoEsquina,
+} from '@/components/publico/ornamentos'
 import { useAparece } from '@/components/publico/useAparece'
 import type { Acto, FamiliaPersona } from '@/lib/database.types'
-import { formatFechaLarga, formatHora } from '@/lib/format'
+import { formatFechaLarga, formatHora, normalizar } from '@/lib/format'
 import { descargarIcs } from '@/lib/ics'
 import type { PropsPlantilla } from './tipos'
 
 /**
- * Plantilla "Elegante": la que suma el sobre animado, musica de fondo,
- * familias, "nuestra historia" y galeria de fotos por encima de lo que ya
- * trae "Clasica" (cronograma, detalles, RSVP).
+ * Plantilla "Elegante": sobre animado en 3D, musica de fondo, y el resto de
+ * la invitacion con la estetica de flores secas y dorado.
  *
- * Paleta propia (navy + marfil) fijada en `--inv-*` sobre el nodo raiz: los
- * componentes compartidos (CuentaRegresiva, FormularioRsvp) la toman de ahi,
- * asi que no hace falta tocarlos para sumar una plantilla con otro aspecto.
+ * Paleta propia fijada en `--inv-*` sobre el nodo raiz: los componentes
+ * compartidos (CuentaRegresiva, FormularioRsvp) la toman de ahi, asi que no
+ * hace falta tocarlos para sumar una plantilla con otro aspecto.
  */
 const PALETA: CSSProperties = {
-  '--inv-primary': '#1b2a4a',
-  '--inv-primary-dark': '#12203a',
-  '--inv-secondary': '#6b6055',
-  '--inv-text': '#262a33',
-  '--inv-muted': '#79736a',
-  '--inv-border': '#e6ded0',
-  '--inv-border-strong': '#cdbf9e',
-  '--inv-hover': '#f4efe2',
-  '--inv-placeholder': '#b6ab97',
+  '--inv-primary': '#8a6a45',
+  '--inv-primary-dark': '#6f5537',
+  '--inv-secondary': '#7d7268',
+  '--inv-text': '#4a4038',
+  '--inv-muted': '#8a7d70',
+  '--inv-border': '#e8ddcc',
+  '--inv-border-strong': '#d5c3a5',
+  '--inv-hover': '#faf5ec',
+  '--inv-placeholder': '#b9ac9a',
 } as CSSProperties
+
+const DORADO = '#c8a165'
 
 export default function Elegante({
   evento,
@@ -51,11 +60,11 @@ export default function Elegante({
   const audioRef = useRef<HTMLAudioElement>(null)
 
   function alAbrirSobre() {
-    // Tiene que llamarse DENTRO del click del sello: es el gesto que exige
+    // Tiene que llamarse DENTRO del click del lacre: es el gesto que exige
     // el navegador para permitir reproducir audio sin que lo bloquee.
     audioRef.current?.play().catch(() => {
       // Algunos navegadores igual lo bloquean (ej. modo ahorro de datos).
-      // La invitacion sigue andando igual, simplemente sin musica.
+      // La invitacion sigue andando, simplemente sin musica.
     })
   }
 
@@ -67,11 +76,7 @@ export default function Elegante({
   }
 
   return (
-    <div
-      ref={ref}
-      className="min-h-screen bg-[#faf7f2] text-[#262a33]"
-      style={PALETA}
-    >
+    <div ref={ref} className="min-h-screen overflow-hidden bg-[#fdfbf7] text-[#4a4038]" style={PALETA}>
       {c.musica_url && <audio ref={audioRef} src={c.musica_url} loop preload="auto" />}
 
       {mostrarSobre && (
@@ -92,39 +97,79 @@ export default function Elegante({
         {c.imagen_portada ? (
           <>
             <img src={c.imagen_portada} alt="" className="absolute inset-0 size-full object-cover" />
-            <div className="absolute inset-0 bg-[#1b2a4a]/45" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#3a2f24]/45 via-[#3a2f24]/35 to-[#3a2f24]/55" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-b from-[#eef0f5] to-[#faf7f2]" />
+          <>
+            <div className="absolute inset-0 bg-gradient-to-b from-[#f6ece0] via-[#fdfbf7] to-[#f7f1e6]" />
+            <RamoEsquina className="pointer-events-none absolute -left-8 -top-4 size-52 sm:size-72" opacidad={0.75} />
+            <RamoEsquina
+              className="pointer-events-none absolute -bottom-4 -right-8 size-52 sm:size-72"
+              espejado
+              opacidad={0.75}
+            />
+          </>
         )}
 
-        <div className={'relative max-w-xl ' + (c.imagen_portada ? 'text-white' : 'text-[#262a33]')}>
-          <Divisor tono={c.imagen_portada ? 'claro' : 'oscuro'} />
+        <div className={'relative ' + (c.imagen_portada ? 'text-white' : '')}>
           {c.frase && (
-            <p className="my-4 text-xs uppercase tracking-[0.4em] opacity-90">{c.frase}</p>
+            <p className="mb-5 text-[10px] uppercase tracking-[0.45em] opacity-90 sm:text-xs">
+              {c.frase}
+            </p>
           )}
-          <h1 className="font-serif text-6xl leading-none sm:text-7xl">{titulo}</h1>
+
+          {/* Monograma encuadrado en el hexagono dorado */}
+          <div className="relative mx-auto mb-6 flex size-28 items-center justify-center sm:size-32">
+            <Hexagono
+              className="absolute inset-0 size-full"
+              color={c.imagen_portada ? 'rgba(255,255,255,0.8)' : DORADO}
+            />
+            <span
+              className="whitespace-nowrap font-script text-3xl leading-none sm:text-4xl"
+              style={{ color: c.imagen_portada ? '#fff' : '#a8804f' }}
+            >
+              {monograma}
+            </span>
+          </div>
+
+          <TituloApilado titulo={titulo} />
+
+          <Floritura
+            className="my-5"
+            ancho={190}
+            color={c.imagen_portada ? 'rgba(255,255,255,0.85)' : DORADO}
+          />
+
           {evento.fecha_evento && (
-            <p className="mt-5 text-sm uppercase tracking-[0.25em] opacity-90">
+            <p className="text-[11px] uppercase tracking-[0.3em] opacity-95 sm:text-xs">
               {formatFechaLarga(evento.fecha_evento)}
             </p>
           )}
-          <Divisor tono={c.imagen_portada ? 'claro' : 'oscuro'} className="mt-6" />
         </div>
+
+        <a
+          href="#confirmar"
+          className={
+            'absolute bottom-8 whitespace-nowrap rounded-full border px-6 py-2.5 text-[10px] uppercase tracking-[0.25em] transition-colors ' +
+            (c.imagen_portada
+              ? 'border-white/60 text-white hover:bg-white/15'
+              : 'border-[#d5c3a5] text-[#8a6a45] hover:bg-[#f7f1e6]')
+          }
+        >
+          Confirmar asistencia
+        </a>
       </header>
 
       {/* ── Saludo + cuenta regresiva ── */}
       <Seccion>
-        <p className="text-center text-xs uppercase tracking-[0.3em]" style={{ color: 'var(--inv-muted)' }}>
-          {saludo}
-        </p>
+        <p className="text-center text-[10px] uppercase tracking-[0.35em] text-[#a08f7c]">{saludo}</p>
         {c.mensaje && (
-          <p className="mx-auto mt-5 max-w-xl text-center font-serif text-xl italic leading-relaxed sm:text-2xl">
+          <p className="mx-auto mt-6 max-w-xl text-center font-serif text-xl leading-relaxed text-[#5c5147] sm:text-2xl">
             {c.mensaje}
           </p>
         )}
         {evento.fecha_evento && (
-          <div className="mt-8">
+          <div className="mt-10">
             <CuentaRegresiva fecha={evento.fecha_evento} />
           </div>
         )}
@@ -142,8 +187,8 @@ export default function Elegante({
 
       {/* ── Nuestra historia ── */}
       {c.historia && (
-        <Seccion titulo="Nuestra historia">
-          <p className="mx-auto max-w-xl text-center text-sm leading-relaxed sm:text-base">
+        <Seccion titulo="Nuestra historia" fondo>
+          <p className="mx-auto max-w-xl text-center font-serif text-lg italic leading-relaxed text-[#5c5147]">
             {c.historia}
           </p>
         </Seccion>
@@ -158,14 +203,14 @@ export default function Elegante({
 
       {/* ── Actos ── */}
       {actos.length > 0 && (
-        <Seccion titulo="Cuando y donde">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <Seccion titulo="Cuando y donde" fondo>
+          <div className="grid gap-5 sm:grid-cols-2">
             {actos.map((acto, i) => (
               <TarjetaActo key={acto.id || i} acto={acto} />
             ))}
           </div>
           {evento.fecha_evento && (
-            <div className="mt-6 flex justify-center">
+            <div className="mt-8 flex justify-center">
               <button
                 type="button"
                 onClick={() =>
@@ -176,10 +221,9 @@ export default function Elegante({
                     descripcion: c.mensaje,
                   })
                 }
-                className="inline-flex items-center gap-2 rounded-full border bg-white px-5 py-2.5 text-xs uppercase tracking-widest transition-colors hover:bg-[var(--inv-hover)]"
-                style={{ borderColor: 'var(--inv-border-strong)', color: 'var(--inv-primary)' }}
+                className="inline-flex items-center gap-2 rounded-full border border-[#d5c3a5] bg-white px-6 py-2.5 text-[10px] uppercase tracking-[0.25em] text-[#8a6a45] transition-colors hover:bg-[#faf5ec]"
               >
-                <CalendarPlus className="size-4" /> Agendar
+                <CalendarPlus className="size-3.5" /> Agendar
               </button>
             </div>
           )}
@@ -189,20 +233,22 @@ export default function Elegante({
       {/* ── Detalles ── */}
       {(c.dress_code || c.regalos || c.notas) && (
         <Seccion titulo="Detalles">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {c.dress_code && <Detalle titulo="Dress code">{c.dress_code}</Detalle>}
-            {c.regalos && <Detalle titulo="Regalos">{c.regalos}</Detalle>}
-            {c.notas && (
-              <div className="sm:col-span-2">
-                <Detalle titulo="Para tener en cuenta">{c.notas}</Detalle>
-              </div>
+          <div className="space-y-5">
+            {c.dress_code && (
+              <Detalle titulo="Dress code" icono={<IconoVestimenta className="mx-auto h-16 w-20" />}>
+                {c.dress_code}
+              </Detalle>
             )}
+            <div className="grid gap-5 sm:grid-cols-2">
+              {c.regalos && <Detalle titulo="Regalos">{c.regalos}</Detalle>}
+              {c.notas && <Detalle titulo="Para tener en cuenta">{c.notas}</Detalle>}
+            </div>
           </div>
         </Seccion>
       )}
 
       {/* ── Confirmacion ── */}
-      <Seccion titulo="Confirmá tu asistencia" id="confirmar">
+      <Seccion titulo="Confirmá tu asistencia" id="confirmar" fondo>
         <div className="mx-auto max-w-lg">
           <FormularioRsvp
             invitacion={invitacion}
@@ -213,50 +259,79 @@ export default function Elegante({
         </div>
       </Seccion>
 
-      <footer className="px-6 pb-14 pt-4 text-center">
-        {c.hashtag && (
-          <p className="font-serif text-xl" style={{ color: 'var(--inv-primary)' }}>
-            {c.hashtag.startsWith('#') ? c.hashtag : `#${c.hashtag}`}
-          </p>
-        )}
-        {c.contacto_nombre && (
-          <p className="mt-3 text-xs" style={{ color: 'var(--inv-muted)' }}>
-            Dudas: {c.contacto_nombre}
-            {c.contacto_telefono && ` · ${c.contacto_telefono}`}
-          </p>
-        )}
+      <footer className="relative overflow-hidden px-6 pb-16 pt-6 text-center">
+        <RamoEsquina className="pointer-events-none absolute -bottom-8 -left-10 size-40" opacidad={0.5} />
+        <RamoEsquina
+          className="pointer-events-none absolute -bottom-8 -right-10 size-40"
+          espejado
+          opacidad={0.5}
+        />
+        <div className="relative">
+          <Floritura ancho={150} />
+          {c.hashtag && (
+            <p className="mt-4 font-script text-3xl text-[#a8804f]">
+              {c.hashtag.startsWith('#') ? c.hashtag : `#${c.hashtag}`}
+            </p>
+          )}
+          {c.contacto_nombre && (
+            <p className="mt-3 text-xs text-[#a08f7c]">
+              Dudas: {c.contacto_nombre}
+              {c.contacto_telefono && ` · ${c.contacto_telefono}`}
+            </p>
+          )}
+        </div>
       </footer>
     </div>
   )
 }
 
-function Divisor({ tono, className = '' }: { tono: 'claro' | 'oscuro'; className?: string }) {
+/**
+ * 'Valentina & Mateo' se muestra en tres renglones, con el '&' solo en el
+ * del medio: es como se arma en una invitacion impresa, y ademas evita que
+ * un nombre largo corte justo despues del '&' en una pantalla angosta.
+ */
+function TituloApilado({ titulo }: { titulo: string }) {
+  const partes = titulo
+    .split(/\s*(?:&|\+|\by\b)\s*/i)
+    .map((p) => p.trim())
+    .filter(Boolean)
+
+  if (partes.length < 2) {
+    return <h1 className="font-script text-6xl leading-[1.05] sm:text-7xl">{titulo}</h1>
+  }
+
   return (
-    <div className={`flex items-center justify-center gap-3 ${className}`}>
-      <span
-        className={'h-px w-10 ' + (tono === 'claro' ? 'bg-white/60' : '')}
-        style={tono === 'oscuro' ? { backgroundColor: 'var(--inv-border-strong)' } : undefined}
-      />
-      <span className="text-sm">❦</span>
-      <span
-        className={'h-px w-10 ' + (tono === 'claro' ? 'bg-white/60' : '')}
-        style={tono === 'oscuro' ? { backgroundColor: 'var(--inv-border-strong)' } : undefined}
-      />
-    </div>
+    <h1 className="font-script leading-[0.95]">
+      <span className="block text-6xl sm:text-7xl">{partes[0]}</span>
+      <span className="my-1 block text-4xl opacity-70 sm:text-5xl">&amp;</span>
+      <span className="block text-6xl sm:text-7xl">{partes.slice(1).join(' ')}</span>
+    </h1>
   )
 }
 
-function Seccion({ titulo, id, children }: { titulo?: string; id?: string; children: ReactNode }) {
+function Seccion({
+  titulo,
+  id,
+  fondo,
+  children,
+}: {
+  titulo?: string
+  id?: string
+  /** Franja crema, para alternar con el fondo blanco y separar secciones. */
+  fondo?: boolean
+  children: ReactNode
+}) {
   return (
-    <section id={id} className="aparece px-6 py-14 sm:py-16">
+    <section
+      id={id}
+      className={'aparece px-6 py-16 sm:py-20 ' + (fondo ? 'bg-[#f9f4ea]' : '')}
+    >
       <div className="mx-auto max-w-2xl">
         {titulo && (
-          <h2
-            className="mb-8 text-center font-serif text-3xl"
-            style={{ color: 'var(--inv-primary)' }}
-          >
-            {titulo}
-          </h2>
+          <div className="mb-10 text-center">
+            <h2 className="font-script text-4xl text-[#a8804f] sm:text-5xl">{titulo}</h2>
+            <Floritura className="mt-3" ancho={160} />
+          </div>
         )}
         {children}
       </div>
@@ -267,31 +342,31 @@ function Seccion({ titulo, id, children }: { titulo?: string; id?: string; child
 function BloqueFamilia({ persona }: { persona: FamiliaPersona }) {
   return (
     <div className="text-center">
-      <h3 className="font-serif text-2xl" style={{ color: 'var(--inv-text)' }}>
-        {persona.nombre}
-      </h3>
+      <h3 className="font-script text-3xl text-[#4a4038]">{persona.nombre}</h3>
+      <Floritura className="my-3" ancho={110} />
       {persona.padres && (
         <>
-          <p className="mt-3 text-[11px] uppercase tracking-widest" style={{ color: 'var(--inv-muted)' }}>
-            Hijo/a de
-          </p>
-          <p className="text-sm" style={{ color: 'var(--inv-text)' }}>
-            {persona.padres}
-          </p>
+          <p className="text-[10px] uppercase tracking-[0.25em] text-[#a08f7c]">Hijo/a de</p>
+          <p className="mt-1 font-serif text-lg text-[#5c5147]">{persona.padres}</p>
         </>
       )}
       {persona.hermanos && (
         <>
-          <p className="mt-3 text-[11px] uppercase tracking-widest" style={{ color: 'var(--inv-muted)' }}>
-            Hermano/a de
-          </p>
-          <p className="text-sm" style={{ color: 'var(--inv-text)' }}>
-            {persona.hermanos}
-          </p>
+          <p className="mt-4 text-[10px] uppercase tracking-[0.25em] text-[#a08f7c]">Hermano/a de</p>
+          <p className="mt-1 font-serif text-lg text-[#5c5147]">{persona.hermanos}</p>
         </>
       )}
     </div>
   )
+}
+
+/** Anillos para la ceremonia, copas para la fiesta: se elige por el titulo. */
+function iconoDeActo(titulo: string) {
+  const t = normalizar(titulo)
+  if (t.includes('fiesta') || t.includes('recepcion') || t.includes('brindis')) {
+    return <IconoBrindis className="mx-auto h-9 w-14" />
+  }
+  return <IconoAnillos className="mx-auto h-9 w-14" />
 }
 
 function TarjetaActo({ acto }: { acto: Acto }) {
@@ -306,37 +381,26 @@ function TarjetaActo({ acto }: { acto: Acto }) {
       : null)
 
   return (
-    <div className="rounded-lg border bg-white/70 p-5 text-center" style={{ borderColor: 'var(--inv-border)' }}>
-      <h3 className="font-serif text-2xl" style={{ color: 'var(--inv-text)' }}>
-        {acto.titulo}
-      </h3>
+    <div className="rounded-lg border border-[#e8ddcc] bg-white p-6 text-center shadow-[0_10px_30px_-24px_rgba(90,70,45,0.6)]">
+      {iconoDeActo(acto.titulo)}
+      <h3 className="mt-3 font-script text-3xl text-[#4a4038]">{acto.titulo}</h3>
       {acto.fecha && (
-        <p className="mt-1 text-sm" style={{ color: 'var(--inv-muted)' }}>
+        <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-[#a08f7c]">
           {formatFechaLarga(acto.fecha)} · {formatHora(acto.fecha)}
         </p>
       )}
-      {acto.lugar && (
-        <p className="mt-3 text-sm font-medium" style={{ color: 'var(--inv-text)' }}>
-          {acto.lugar}
-        </p>
-      )}
-      {acto.direccion && (
-        <p className="text-sm" style={{ color: 'var(--inv-muted)' }}>
-          {acto.direccion}
-        </p>
-      )}
+      <Floritura className="my-4" ancho={100} />
+      {acto.lugar && <p className="font-serif text-lg text-[#4a4038]">{acto.lugar}</p>}
+      {acto.direccion && <p className="mt-1 text-sm text-[#8a7d70]">{acto.direccion}</p>}
       {acto.cita && (
-        <p className="mt-3 text-xs italic leading-relaxed" style={{ color: 'var(--inv-muted)' }}>
-          “{acto.cita}”
-        </p>
+        <p className="mt-4 font-serif text-sm italic leading-relaxed text-[#a08f7c]">“{acto.cita}”</p>
       )}
       {destino && (
         <a
           href={destino}
           target="_blank"
           rel="noreferrer noopener"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs uppercase tracking-widest transition-colors hover:bg-[var(--inv-hover)]"
-          style={{ borderColor: 'var(--inv-border-strong)', color: 'var(--inv-primary)' }}
+          className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-[#d5c3a5] px-5 py-2 text-[10px] uppercase tracking-[0.25em] text-[#8a6a45] transition-colors hover:bg-[#faf5ec]"
         >
           <MapPin className="size-3.5" /> Como llegar
         </a>
@@ -345,13 +409,22 @@ function TarjetaActo({ acto }: { acto: Acto }) {
   )
 }
 
-function Detalle({ titulo, children }: { titulo: string; children: ReactNode }) {
+function Detalle({
+  titulo,
+  icono,
+  children,
+}: {
+  titulo: string
+  icono?: ReactNode
+  children: ReactNode
+}) {
   return (
-    <div className="rounded-lg border bg-white/70 p-5" style={{ borderColor: 'var(--inv-border)' }}>
-      <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--inv-muted)' }}>
+    <div className="rounded-lg border border-[#e8ddcc] bg-white p-6 text-center">
+      {icono}
+      <p className={'text-[10px] uppercase tracking-[0.28em] text-[#a08f7c] ' + (icono ? 'mt-3' : '')}>
         {titulo}
       </p>
-      <p className="mt-2 whitespace-pre-line text-sm leading-relaxed" style={{ color: 'var(--inv-text)' }}>
+      <p className="mt-2 whitespace-pre-line font-serif text-lg leading-relaxed text-[#4a4038]">
         {children}
       </p>
     </div>

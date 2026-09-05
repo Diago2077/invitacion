@@ -1,19 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Floritura, Hexagono, RamoEsquina } from './ornamentos'
 
 /**
- * Portada tipo "sobre": tapa la invitacion hasta que el invitado toca para
- * abrir. Es el efecto que mas se nota de una invitacion "premium" y no
- * necesita ilustracion encargada: el sobre se dibuja entero con CSS
- * (gradientes + clip-path), asi que funciona igual para cualquier evento sin
- * depender de arte por pedido.
+ * Portada tipo sobre, con apertura en 3D.
  *
- * El sello central ES el boton: al tocarlo se dispara `onAbrir` (para
- * arrancar la musica de fondo, si hay, DENTRO del mismo gesto de click --
- * los navegadores exigen eso para no bloquear el audio) y arranca la
- * animacion de apertura; recien cuando termina se llama a `onCerrado`, que
- * es lo que el padre usa para sacar el sobre del arbol y mostrar el resto.
+ * La secuencia imita la de un sobre real y por eso son cuatro fases y no
+ * una sola animacion: primero se rompe el lacre, despues la solapa gira
+ * hacia atras sobre su borde superior, recien ahi la tarjeta sale del
+ * bolsillo, y al final todo se desvanece para dejar ver la invitacion.
+ *
+ * El apilado es 3D de verdad (perspective + preserve-3d + translateZ), no
+ * z-index: eso es lo que hace que la tarjeta salga POR DETRAS del bolsillo
+ * y por delante del dorso, como en un sobre de papel.
+ *
+ *   z=0  dorso (interior del sobre)
+ *   z=1  tarjeta            <- sale deslizandose hacia arriba
+ *   z=2  bolsillo delantero <- tapa la tarjeta hasta que asoma por la V
+ *   z=3  solapa             <- gira -170deg sobre su borde de arriba
+ *   z=4  lacre              <- el boton
  */
-const DURACION_MS = 700
+type Fase = 'cerrado' | 'abriendo' | 'saliendo' | 'fuera'
+
+/** Cada paso arranca donde el anterior ya se ve encaminado, no cuando termina. */
+const TIEMPOS = { solapa: 900, tarjeta: 1000, salida: 600 }
 
 export function Sobre({
   monograma,
@@ -30,7 +39,7 @@ export function Sobre({
   onAbrir: () => void
   onCerrado: () => void
 }) {
-  const [cerrando, setCerrando] = useState(false)
+  const [fase, setFase] = useState<Fase>('cerrado')
 
   // El sobre actua como un modal: mientras esta, no se scrollea lo de atras.
   useEffect(() => {
@@ -41,115 +50,194 @@ export function Sobre({
     }
   }, [])
 
+  // Posiciones y demoras de las particulas: fijas por montaje, no por
+  // render, para que no salten cuando el componente se vuelve a dibujar.
+  const particulas = useMemo(
+    () =>
+      Array.from({ length: 14 }, (_, i) => ({
+        id: i,
+        izq: 8 + Math.random() * 84,
+        abajo: Math.random() * 30,
+        demora: Math.random() * 900,
+        tam: 3 + Math.random() * 4,
+      })),
+    [],
+  )
+
   function tocar() {
-    if (cerrando) return
+    if (fase !== 'cerrado') return
+    // Tiene que salir DENTRO del click: es el gesto que exige el navegador
+    // para dejar sonar el audio sin bloquearlo.
     onAbrir()
-    setCerrando(true)
-    setTimeout(onCerrado, DURACION_MS)
+
+    const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (sinMovimiento) {
+      setFase('fuera')
+      setTimeout(onCerrado, 250)
+      return
+    }
+
+    setFase('abriendo')
+    setTimeout(() => setFase('saliendo'), TIEMPOS.solapa)
+    setTimeout(() => setFase('fuera'), TIEMPOS.solapa + TIEMPOS.tarjeta)
+    setTimeout(onCerrado, TIEMPOS.solapa + TIEMPOS.tarjeta + TIEMPOS.salida)
   }
+
+  const abriendo = fase !== 'cerrado'
+  const tarjetaAfuera = fase === 'saliendo' || fase === 'fuera'
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center px-6 transition-all ease-in-out"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden px-6"
       style={{
-        transitionDuration: `${DURACION_MS}ms`,
-        opacity: cerrando ? 0 : 1,
-        transform: cerrando ? 'scale(0.94) translateY(-12px)' : 'none',
-        pointerEvents: cerrando ? 'none' : 'auto',
-        // Fondo propio, fijo, independiente de la paleta de la plantilla: el
-        // sobre tapa el header mientras carga, asi que no puede depender de
-        // que la plantilla ya haya pintado su fondo.
         background:
-          'radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--inv-primary) 10%, transparent), transparent 60%), #faf7f2',
+          'radial-gradient(ellipse at 50% 35%, #fffdf9 0%, #f7efe2 55%, #efe3d2 100%)',
+        opacity: fase === 'fuera' ? 0 : 1,
+        transform: fase === 'fuera' ? 'scale(1.06)' : 'none',
+        transition: `opacity ${TIEMPOS.salida}ms ease-out, transform ${TIEMPOS.salida}ms ease-out`,
+        pointerEvents: fase === 'fuera' ? 'none' : 'auto',
       }}
     >
-      <div className="flex w-full max-w-xs flex-col items-center">
-        <p
-          className="mb-6 text-[11px] uppercase tracking-[0.35em]"
-          style={{ color: 'var(--inv-muted)' }}
-        >
+      {/* Ramos en las esquinas, como en las invitaciones impresas */}
+      <RamoEsquina className="pointer-events-none absolute -left-6 -top-6 size-44 sm:size-56" opacidad={0.7} />
+      <RamoEsquina
+        className="pointer-events-none absolute -bottom-6 -right-6 size-44 sm:size-56"
+        espejado
+        opacidad={0.7}
+      />
+
+      <div className="relative flex w-full max-w-[300px] flex-col items-center">
+        <p className="mb-5 text-[10px] uppercase tracking-[0.4em]" style={{ color: '#9a8a76' }}>
           Estás invitado a
         </p>
 
-        {/* El sobre */}
-        <div className="relative aspect-[4/5] w-full max-w-[260px] drop-shadow-xl">
-          {/* Cuerpo */}
+        {/* ── Escena 3D ── */}
+        <div className="relative w-full" style={{ perspective: '1400px' }}>
           <div
-            className="absolute inset-0 rounded-[2px]"
-            style={{ background: 'linear-gradient(180deg, #fffefb, #f7f1e4)' }}
-          />
-          {/* Solapa triangular, superior */}
-          <div
-            className="absolute inset-x-0 top-0 h-[58%]"
-            style={{
-              background: 'linear-gradient(160deg, #fbf6ea, #efe6d2)',
-              clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-            }}
-          />
-          {/* Linea del pliegue */}
-          <div
-            className="absolute inset-x-0 top-0 h-[58%] opacity-40"
-            style={{
-              background: 'linear-gradient(160deg, transparent 96%, var(--inv-border-strong) 100%)',
-              clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-            }}
-          />
-
-          {/* Monograma, arriba dentro de la solapa */}
-          <div className="absolute inset-x-0 top-[12%] flex flex-col items-center">
-            <div
-              className="flex size-16 items-center justify-center rounded-full border"
-              style={{ borderColor: 'var(--inv-border-strong)' }}
-            >
-              <span
-                className="font-serif text-xl tracking-wide"
-                style={{ color: 'var(--inv-primary)' }}
-              >
-                {monograma}
-              </span>
-            </div>
-          </div>
-
-          {/* Titulo y fecha, en el cuerpo, debajo de donde cierra la solapa */}
-          <div className="absolute inset-x-0 bottom-[14%] flex flex-col items-center gap-1 px-4 text-center">
-            <p className="font-serif text-lg leading-tight" style={{ color: 'var(--inv-text)' }}>
-              {titulo}
-            </p>
-            {fechaLarga && (
-              <p
-                className="text-[10px] uppercase tracking-[0.2em]"
-                style={{ color: 'var(--inv-muted)' }}
-              >
-                {fechaLarga}
-              </p>
-            )}
-          </div>
-
-          {/* Sello de cera = boton de abrir, apoyado justo en la punta de la solapa */}
-          <button
-            type="button"
-            onClick={tocar}
-            aria-label="Abrir invitacion"
-            className="absolute left-1/2 top-[58%] flex size-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
-            style={{
-              background:
-                'radial-gradient(circle at 35% 30%, var(--inv-primary), var(--inv-primary-dark))',
-            }}
+            className="relative mx-auto aspect-[4/5] w-full"
+            style={{ transformStyle: 'preserve-3d' }}
           >
-            <span className="font-serif text-base">{monograma}</span>
-          </button>
+            {/* Dorso: el interior del sobre */}
+            <div
+              className="absolute inset-0 rounded-[3px]"
+              style={{
+                background: 'linear-gradient(170deg, #f3e9d8, #e7d9c2)',
+                transform: 'translateZ(0)',
+                boxShadow: '0 30px 60px -25px rgba(90,70,45,0.45)',
+              }}
+            />
+
+            {/* Tarjeta: sale deslizandose por la V */}
+            <div
+              className="absolute left-1/2 flex flex-col items-center justify-center rounded-[2px] bg-[#fffdf8] px-5 text-center"
+              style={{
+                width: '86%',
+                height: '88%',
+                bottom: '6%',
+                transform: `translateX(-50%) translateZ(1px) translateY(${tarjetaAfuera ? '-62%' : '0%'}) scale(${tarjetaAfuera ? 1.03 : 1})`,
+                transition: `transform ${TIEMPOS.tarjeta}ms cubic-bezier(0.22, 0.9, 0.3, 1)`,
+                boxShadow: tarjetaAfuera ? '0 24px 40px -18px rgba(90,70,45,0.5)' : 'none',
+              }}
+            >
+              <div className="relative flex size-[104px] items-center justify-center">
+                <Hexagono className="absolute inset-0 size-full" />
+                <span className="whitespace-nowrap font-script text-3xl leading-none text-[#a8804f]">
+                  {monograma}
+                </span>
+              </div>
+              <Floritura className="mt-3" ancho={130} />
+              <p className="mt-3 font-script text-2xl leading-tight text-[#4a4038]">{titulo}</p>
+              {fechaLarga && (
+                <p className="mt-2 text-[9px] uppercase tracking-[0.28em] text-[#9a8a76]">
+                  {fechaLarga}
+                </p>
+              )}
+            </div>
+
+            {/* Bolsillo delantero, con la V que copia la solapa */}
+            <div
+              className="absolute inset-0 rounded-[3px]"
+              style={{
+                background: 'linear-gradient(185deg, #fdf7ec, #f2e6d2)',
+                clipPath: 'polygon(0 0, 50% 55%, 100% 0, 100% 100%, 0 100%)',
+                transform: 'translateZ(2px)',
+              }}
+            />
+            {/* Los dos pliegues del bolsillo, apenas marcados */}
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                transform: 'translateZ(2.1px)',
+                clipPath: 'polygon(0 0, 50% 55%, 100% 0, 100% 100%, 0 100%)',
+                background:
+                  'linear-gradient(to bottom right, transparent calc(50% - 0.5px), rgba(160,130,90,0.18) 50%, transparent calc(50% + 0.5px)), linear-gradient(to bottom left, transparent calc(50% - 0.5px), rgba(160,130,90,0.18) 50%, transparent calc(50% + 0.5px))',
+              }}
+            />
+
+            {/* Solapa: gira sobre su borde de arriba */}
+            <div
+              className="absolute inset-x-0 top-0"
+              style={{
+                height: '55%',
+                background: abriendo
+                  ? 'linear-gradient(0deg, #f0e4cf, #e6d7bd)'
+                  : 'linear-gradient(175deg, #fdf7ec, #efe2cb)',
+                clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+                transformOrigin: 'top center',
+                transform: `translateZ(3px) rotateX(${abriendo ? -172 : 0}deg)`,
+                transition: `transform ${TIEMPOS.solapa}ms cubic-bezier(0.5, 0, 0.35, 1), background 300ms linear`,
+                filter: abriendo ? 'brightness(0.97)' : 'none',
+              }}
+            />
+
+            {/* Lacre = boton de abrir */}
+            <button
+              type="button"
+              onClick={tocar}
+              aria-label="Abrir invitacion"
+              disabled={abriendo}
+              className="absolute left-1/2 flex size-16 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:hover:scale-100"
+              style={{
+                top: '55%',
+                transform: `translate(-50%, -50%) translateZ(4px) scale(${abriendo ? 1.5 : 1}) rotate(${abriendo ? 14 : 0}deg)`,
+                opacity: abriendo ? 0 : 1,
+                transition: 'transform 420ms ease-out, opacity 380ms ease-out',
+                background:
+                  'radial-gradient(circle at 34% 28%, #c8a165 0%, #a8804f 45%, #8a6a45 100%)',
+                boxShadow: '0 6px 14px -4px rgba(90,70,45,0.6), inset 0 1px 2px rgba(255,255,255,0.4)',
+              }}
+            >
+              <span className="whitespace-nowrap font-script text-lg leading-none">{monograma}</span>
+            </button>
+
+            {/* Particulas doradas, solo mientras se abre */}
+            {abriendo &&
+              particulas.map((p) => (
+                <span
+                  key={p.id}
+                  className="particula pointer-events-none absolute rounded-full"
+                  style={{
+                    left: `${p.izq}%`,
+                    bottom: `${p.abajo}%`,
+                    width: p.tam,
+                    height: p.tam,
+                    background: '#c8a165',
+                    animationDelay: `${p.demora}ms`,
+                    transform: 'translateZ(5px)',
+                  }}
+                />
+              ))}
+          </div>
         </div>
 
         <p
-          className="mt-8 animate-pulse text-[11px] uppercase tracking-[0.3em]"
-          style={{ color: 'var(--inv-primary)' }}
+          className="respira mt-8 text-[11px] uppercase tracking-[0.3em] text-[#a8804f]"
+          style={{ opacity: abriendo ? 0 : undefined, transition: 'opacity 300ms' }}
         >
-          Toca para abrir
+          Toca el sello para abrir
         </p>
-        {frase && (
-          <p className="mt-1 text-[11px] italic" style={{ color: 'var(--inv-muted)' }}>
-            {frase}
-          </p>
+        {frase && !abriendo && (
+          <p className="mt-1 font-serif text-sm italic text-[#9a8a76]">{frase}</p>
         )}
       </div>
     </div>

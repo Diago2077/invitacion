@@ -11,9 +11,17 @@ export function Galeria({ fotos }: { fotos: string[] }) {
 
   return (
     <div className="mx-auto max-w-md">
+      {/*
+        Forma de arco (redondeado arriba, recto abajo): es el encuadre que
+        usan las invitaciones impresas y disimula que las fotos vengan con
+        proporciones distintas.
+      */}
       <div
-        className="relative aspect-[4/5] overflow-hidden rounded-lg border"
-        style={{ borderColor: 'var(--inv-border)' }}
+        className="relative aspect-[4/5] overflow-hidden border shadow-[0_18px_40px_-28px_rgba(90,70,45,0.7)]"
+        style={{
+          borderColor: 'var(--inv-border)',
+          borderRadius: '9999px 9999px 8px 8px',
+        }}
       >
         <img key={i} src={fotos[i]} alt="" className="size-full object-cover" />
 
