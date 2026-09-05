@@ -57,17 +57,18 @@ export default function Elegante({
   const monograma = useMemo(() => inicialesDe(titulo), [titulo])
 
   const [mostrarSobre, setMostrarSobre] = useState(true)
-  // Arranca en false: en el sobre en CSS pasa a true apenas se toca el
-  // lacre (autoplay real); con video de apertura queda en false hasta que
-  // el invitado toca el boton flotante -- reproducir el video ya usa el
-  // gesto del usuario para su propio audio, asi que la musica de fondo no
-  // arranca sola encima para no pisarse con ese sonido.
+  // Arranca en false y pasa a true en el mismo toque que abre el sobre o
+  // arranca el video (autoplay real, no simulado): ese toque es el gesto
+  // que el navegador exige para dejar sonar audio sin bloquearlo. Los
+  // videos de apertura no traen sonido propio, asi que la musica de fondo
+  // es el unico audio de esa escena -- no hay con que pisarse.
   const [sonando, setSonando] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
 
-  function alAbrirSobre() {
-    // Tiene que llamarse DENTRO del click del lacre: es el gesto que exige
-    // el navegador para permitir reproducir audio sin que lo bloquee.
+  function alAbrir() {
+    // Tiene que llamarse DENTRO del click (del lacre o del video): es el
+    // gesto que exige el navegador para permitir reproducir audio sin que
+    // lo bloquee.
     audioRef.current
       ?.play()
       .then(() => setSonando(true))
@@ -100,14 +101,18 @@ export default function Elegante({
 
       {mostrarSobre &&
         (c.video_apertura_url ? (
-          <VideoApertura src={c.video_apertura_url} onFin={() => setMostrarSobre(false)} />
+          <VideoApertura
+            src={c.video_apertura_url}
+            onAbrir={alAbrir}
+            onFin={() => setMostrarSobre(false)}
+          />
         ) : (
           <Sobre
             monograma={monograma}
             titulo={titulo}
             frase={c.frase}
             fechaLarga={formatFechaLarga(evento.fecha_evento)}
-            onAbrir={alAbrirSobre}
+            onAbrir={alAbrir}
             onCerrado={() => setMostrarSobre(false)}
           />
         ))}

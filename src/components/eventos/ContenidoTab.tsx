@@ -320,7 +320,7 @@ export function ContenidoTab({
       <Card>
         <CardHeader
           title="Musica de fondo"
-          description='Musica ambiente para el resto de la invitacion (solo en la plantilla "Elegante"). Si hay video de apertura, no se mezcla con su audio: el invitado la activa con el boton flotante cuando quiera.'
+          description='Arranca sola en el mismo toque que abre el sobre o el video de apertura (solo en la plantilla "Elegante"). Pensada para un video sin audio propio; si el video que subas trae su propio sonido, van a sonar los dos juntos.'
         />
         <CardBody className="space-y-3">
           {c.musica_url ? (

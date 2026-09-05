@@ -12,11 +12,20 @@ const DURACION_FUNDIDO = 550
  * incrustados -- esto solo lo reproduce y arma la transicion.
  *
  * Arranca con un boton "Toca para comenzar" y no en automatico: es el gesto
- * que los navegadores exigen para dejar sonar el audio del video sin
- * bloquearlo, y ademas evita el salto feo de un video que arranca solo
- * mientras la pagina todavia esta cargando.
+ * que los navegadores exigen para dejar sonar audio sin bloquearlo -- el
+ * video en si normalmente no trae sonido (lo genera una IA de video), pero
+ * la musica de fondo del evento si, y usa este mismo toque para arrancar.
  */
-export function VideoApertura({ src, onFin }: { src: string; onFin: () => void }) {
+export function VideoApertura({
+  src,
+  onAbrir,
+  onFin,
+}: {
+  src: string
+  /** Se llama en el mismo click que arranca el video (arranca ahi la musica de fondo, si hay). */
+  onAbrir?: () => void
+  onFin: () => void
+}) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [reproduciendo, setReproduciendo] = useState(false)
   const [desvaneciendo, setDesvaneciendo] = useState(false)
@@ -39,6 +48,7 @@ export function VideoApertura({ src, onFin }: { src: string; onFin: () => void }
   function tocar() {
     if (reproduciendo) return
     setReproduciendo(true)
+    onAbrir?.()
     videoRef.current?.play().catch(() => {
       // Si el navegador igual lo bloquea, no dejamos al invitado trabado
       // mirando un video pausado: se pasa directo al contenido.
