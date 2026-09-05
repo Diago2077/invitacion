@@ -91,7 +91,9 @@ export default function Login() {
           Si sos el cliente de un evento, abrí el link de seguimiento que te pasaron: no necesitás
           cuenta.
         </p>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground/70">v{APP_VERSION}</p>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground/70">
+          v{APP_VERSION} · Desarrollado por DRPCS E.A.S.
+        </p>
       </div>
     </div>
   )
