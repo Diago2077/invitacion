@@ -16,6 +16,12 @@ dist-ssr
 .env.*.local
 .vercel
 
+# Grabaciones/GIFs de referencia que se dejan sueltos en la raiz para
+# mostrar un diseno (no son parte del proyecto, pesan demasiado para git)
+/*.gif
+/*.mp4
+/*.mov
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,28 +1,51 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Floritura, Hexagono, RamoEsquina } from './ornamentos'
 
 /**
- * Portada tipo sobre, con apertura en 3D.
+ * Portada tipo sobre, con apertura en 3D en cuatro tiempos (igual que un
+ * sobre de regalo real):
  *
- * La secuencia imita la de un sobre real y por eso son cuatro fases y no
- * una sola animacion: primero se rompe el lacre, despues la solapa gira
- * hacia atras sobre su borde superior, recien ahi la tarjeta sale del
- * bolsillo, y al final todo se desvanece para dejar ver la invitacion.
+ *   1. rompiendo -> el lacre se rompe (un "pop" con destello, no un fade).
+ *   2. abriendo  -> la solapa gira hacia atras sobre su borde de arriba.
+ *   3. cortina   -> el moño se desata y dos cortinas de tela se corren a
+ *                   los costados, revelando la tarjeta que ya estaba ahi.
+ *   4. fuera     -> todo el conjunto se desvanece y aparece la invitacion.
  *
  * El apilado es 3D de verdad (perspective + preserve-3d + translateZ), no
- * z-index: eso es lo que hace que la tarjeta salga POR DETRAS del bolsillo
- * y por delante del dorso, como en un sobre de papel.
+ * z-index: por eso la solapa puede girar "hacia atras" de verdad en vez de
+ * solo cambiar de tamano.
  *
- *   z=0  dorso (interior del sobre)
- *   z=1  tarjeta            <- sale deslizandose hacia arriba
- *   z=2  bolsillo delantero <- tapa la tarjeta hasta que asoma por la V
- *   z=3  solapa             <- gira -170deg sobre su borde de arriba
- *   z=4  lacre              <- el boton
+ *   z=0  dorso (papel base, con grano)
+ *   z=1  tarjeta (el contenido: monograma, titulo, fecha)
+ *   z=2  cortinas (tela que tapa la tarjeta hasta que se corre)
+ *   z=3  moño (se desata primero, antes de que corran las cortinas)
+ *   z=4  solapa (tapa todo lo de arriba hasta que se abre)
+ *   z=5  lacre (el boton; se rompe primero que nada)
  */
-type Fase = 'cerrado' | 'abriendo' | 'saliendo' | 'fuera'
+type Fase = 'cerrado' | 'rompiendo' | 'abriendo' | 'cortina' | 'fuera'
 
-/** Cada paso arranca donde el anterior ya se ve encaminado, no cuando termina. */
-const TIEMPOS = { solapa: 900, tarjeta: 1000, salida: 600 }
+/** Cada paso arranca un poco antes de que el anterior termine del todo. */
+const TIEMPOS = { romper: 320, solapa: 760, cortina: 680, salida: 550 }
+
+/**
+ * Grano de papel: una textura de ruido generada en SVG (feTurbulence), no
+ * una foto. No queda tan realista como un papel fotografiado, pero rompe la
+ * planitud de un gradiente CSS puro sin depender de un asset por plantilla.
+ */
+const RUIDO_PAPEL = `url("data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140">' +
+    '<filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"/>' +
+    '<feColorMatrix type="matrix" values="0 0 0 0 0.5 0 0 0 0 0.42 0 0 0 0 0.3 0 0 0 0.07 0"/></filter>' +
+    '<rect width="100%" height="100%" filter="url(#n)"/></svg>',
+)}")`
+
+function papel(gradiente: string): CSSProperties {
+  return {
+    backgroundImage: `${RUIDO_PAPEL}, ${gradiente}`,
+    backgroundSize: '140px 140px, cover',
+    backgroundBlendMode: 'overlay, normal',
+  }
+}
 
 export function Sobre({
   monograma,
@@ -50,15 +73,13 @@ export function Sobre({
     }
   }, [])
 
-  // Posiciones y demoras de las particulas: fijas por montaje, no por
-  // render, para que no salten cuando el componente se vuelve a dibujar.
   const particulas = useMemo(
     () =>
-      Array.from({ length: 14 }, (_, i) => ({
+      Array.from({ length: 16 }, (_, i) => ({
         id: i,
-        izq: 8 + Math.random() * 84,
-        abajo: Math.random() * 30,
-        demora: Math.random() * 900,
+        izq: 6 + Math.random() * 88,
+        abajo: Math.random() * 35,
+        demora: Math.random() * 1000,
         tam: 3 + Math.random() * 4,
       })),
     [],
@@ -77,28 +98,30 @@ export function Sobre({
       return
     }
 
-    setFase('abriendo')
-    setTimeout(() => setFase('saliendo'), TIEMPOS.solapa)
-    setTimeout(() => setFase('fuera'), TIEMPOS.solapa + TIEMPOS.tarjeta)
-    setTimeout(onCerrado, TIEMPOS.solapa + TIEMPOS.tarjeta + TIEMPOS.salida)
+    const { romper, solapa, cortina, salida } = TIEMPOS
+    setFase('rompiendo')
+    setTimeout(() => setFase('abriendo'), romper)
+    setTimeout(() => setFase('cortina'), romper + solapa)
+    setTimeout(() => setFase('fuera'), romper + solapa + cortina)
+    setTimeout(onCerrado, romper + solapa + cortina + salida)
   }
 
-  const abriendo = fase !== 'cerrado'
-  const tarjetaAfuera = fase === 'saliendo' || fase === 'fuera'
+  const selloRoto = fase !== 'cerrado'
+  const flapAbierta = fase === 'abriendo' || fase === 'cortina' || fase === 'fuera'
+  const cortinaAbierta = fase === 'cortina' || fase === 'fuera'
+  const conParticulas = fase === 'abriendo' || fase === 'cortina'
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden px-6"
       style={{
-        background:
-          'radial-gradient(ellipse at 50% 35%, #fffdf9 0%, #f7efe2 55%, #efe3d2 100%)',
+        background: 'radial-gradient(ellipse at 50% 35%, #fffdf9 0%, #f7efe2 55%, #efe3d2 100%)',
         opacity: fase === 'fuera' ? 0 : 1,
         transform: fase === 'fuera' ? 'scale(1.06)' : 'none',
         transition: `opacity ${TIEMPOS.salida}ms ease-out, transform ${TIEMPOS.salida}ms ease-out`,
         pointerEvents: fase === 'fuera' ? 'none' : 'auto',
       }}
     >
-      {/* Ramos en las esquinas, como en las invitaciones impresas */}
       <RamoEsquina className="pointer-events-none absolute -left-6 -top-6 size-44 sm:size-56" opacidad={0.7} />
       <RamoEsquina
         className="pointer-events-none absolute -bottom-6 -right-6 size-44 sm:size-56"
@@ -113,30 +136,25 @@ export function Sobre({
 
         {/* ── Escena 3D ── */}
         <div className="relative w-full" style={{ perspective: '1400px' }}>
-          <div
-            className="relative mx-auto aspect-[4/5] w-full"
-            style={{ transformStyle: 'preserve-3d' }}
-          >
+          <div className="relative mx-auto aspect-[4/5] w-full" style={{ transformStyle: 'preserve-3d' }}>
             {/* Dorso: el interior del sobre */}
             <div
               className="absolute inset-0 rounded-[3px]"
               style={{
-                background: 'linear-gradient(170deg, #f3e9d8, #e7d9c2)',
+                ...papel('linear-gradient(170deg, #f3e9d8, #e7d9c2)'),
                 transform: 'translateZ(0)',
                 boxShadow: '0 30px 60px -25px rgba(90,70,45,0.45)',
               }}
             />
 
-            {/* Tarjeta: sale deslizandose por la V */}
+            {/* Tarjeta: siempre en su lugar, la tapan las cortinas hasta que se corren */}
             <div
-              className="absolute left-1/2 flex flex-col items-center justify-center rounded-[2px] bg-[#fffdf8] px-5 text-center"
+              className="absolute left-1/2 flex flex-col items-center justify-center overflow-hidden rounded-[2px] bg-[#fffdf8] px-5 text-center"
               style={{
                 width: '86%',
                 height: '88%',
                 bottom: '6%',
-                transform: `translateX(-50%) translateZ(1px) translateY(${tarjetaAfuera ? '-62%' : '0%'}) scale(${tarjetaAfuera ? 1.03 : 1})`,
-                transition: `transform ${TIEMPOS.tarjeta}ms cubic-bezier(0.22, 0.9, 0.3, 1)`,
-                boxShadow: tarjetaAfuera ? '0 24px 40px -18px rgba(90,70,45,0.5)' : 'none',
+                transform: 'translateX(-50%) translateZ(1px)',
               }}
             >
               <div className="relative flex size-[104px] items-center justify-center">
@@ -148,70 +166,128 @@ export function Sobre({
               <Floritura className="mt-3" ancho={130} />
               <p className="mt-3 font-script text-2xl leading-tight text-[#4a4038]">{titulo}</p>
               {fechaLarga && (
-                <p className="mt-2 text-[9px] uppercase tracking-[0.28em] text-[#9a8a76]">
-                  {fechaLarga}
-                </p>
+                <p className="mt-2 text-[9px] uppercase tracking-[0.28em] text-[#9a8a76]">{fechaLarga}</p>
               )}
             </div>
 
-            {/* Bolsillo delantero, con la V que copia la solapa */}
+            {/* Cortinas: tapan la tarjeta hasta la fase "cortina" */}
             <div
-              className="absolute inset-0 rounded-[3px]"
+              className="absolute left-1/2 overflow-hidden"
               style={{
-                background: 'linear-gradient(185deg, #fdf7ec, #f2e6d2)',
-                clipPath: 'polygon(0 0, 50% 55%, 100% 0, 100% 100%, 0 100%)',
-                transform: 'translateZ(2px)',
+                width: '86%',
+                height: '88%',
+                bottom: '6%',
+                transform: 'translateX(-50%) translateZ(1.5px)',
               }}
-            />
-            {/* Los dos pliegues del bolsillo, apenas marcados */}
+            >
+              <div
+                className="absolute inset-y-0 left-0 w-1/2"
+                style={{
+                  background: 'linear-gradient(100deg, #f8efe0, #ecdcc0 88%)',
+                  boxShadow: 'inset -6px 0 10px -6px rgba(120,95,60,0.35)',
+                  transform: `translateX(${cortinaAbierta ? '-100%' : '0%'})`,
+                  transition: `transform ${TIEMPOS.cortina}ms cubic-bezier(0.65, 0, 0.35, 1)`,
+                }}
+              />
+              <div
+                className="absolute inset-y-0 right-0 w-1/2"
+                style={{
+                  background: 'linear-gradient(260deg, #f8efe0, #ecdcc0 88%)',
+                  boxShadow: 'inset 6px 0 10px -6px rgba(120,95,60,0.35)',
+                  transform: `translateX(${cortinaAbierta ? '100%' : '0%'})`,
+                  transition: `transform ${TIEMPOS.cortina}ms cubic-bezier(0.65, 0, 0.35, 1) 120ms`,
+                }}
+              />
+            </div>
+
+            {/* Moño: se desata antes de que corran las cortinas */}
             <div
-              className="pointer-events-none absolute inset-0"
+              className="absolute left-1/2 flex flex-col items-center"
               style={{
-                transform: 'translateZ(2.1px)',
-                clipPath: 'polygon(0 0, 50% 55%, 100% 0, 100% 100%, 0 100%)',
-                background:
-                  'linear-gradient(to bottom right, transparent calc(50% - 0.5px), rgba(160,130,90,0.18) 50%, transparent calc(50% + 0.5px)), linear-gradient(to bottom left, transparent calc(50% - 0.5px), rgba(160,130,90,0.18) 50%, transparent calc(50% + 0.5px))',
+                bottom: '46%',
+                transform: 'translateX(-50%) translateZ(1.8px)',
               }}
-            />
+            >
+              <div
+                className="flex items-center"
+                style={{
+                  opacity: cortinaAbierta ? 0 : 1,
+                  transform: cortinaAbierta ? 'scale(0.4)' : 'scale(1)',
+                  transition: 'opacity 420ms ease-in, transform 420ms cubic-bezier(0.4, 0, 1, 1)',
+                }}
+              >
+                <LazoLado color="#efe3d0" borde="#c9a165" />
+                <div
+                  className="mx-[-3px] size-3.5 rounded-full"
+                  style={{ background: 'radial-gradient(circle at 35% 30%, #f3e6cf, #c9a165)' }}
+                />
+                <LazoLado color="#efe3d0" borde="#c9a165" espejado />
+              </div>
+              {/* Colas del moño, cayendo sobre la costura de las cortinas */}
+              <div
+                className="flex gap-1"
+                style={{
+                  opacity: cortinaAbierta ? 0 : 1,
+                  transform: cortinaAbierta ? 'translateY(30px)' : 'translateY(0)',
+                  transition: 'opacity 380ms ease-in 60ms, transform 380ms ease-in 60ms',
+                }}
+              >
+                <Cola color="#efe3d0" />
+                <Cola color="#efe3d0" espejada />
+              </div>
+            </div>
 
             {/* Solapa: gira sobre su borde de arriba */}
             <div
               className="absolute inset-x-0 top-0"
               style={{
                 height: '55%',
-                background: abriendo
-                  ? 'linear-gradient(0deg, #f0e4cf, #e6d7bd)'
-                  : 'linear-gradient(175deg, #fdf7ec, #efe2cb)',
+                ...papel(flapAbierta ? 'linear-gradient(0deg, #f0e4cf, #e6d7bd)' : 'linear-gradient(175deg, #fdf7ec, #efe2cb)'),
                 clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
                 transformOrigin: 'top center',
-                transform: `translateZ(3px) rotateX(${abriendo ? -172 : 0}deg)`,
-                transition: `transform ${TIEMPOS.solapa}ms cubic-bezier(0.5, 0, 0.35, 1), background 300ms linear`,
-                filter: abriendo ? 'brightness(0.97)' : 'none',
+                transform: `translateZ(3px) rotateX(${flapAbierta ? -172 : 0}deg)`,
+                transition: `transform ${TIEMPOS.solapa}ms cubic-bezier(0.5, 0, 0.35, 1)`,
               }}
             />
 
-            {/* Lacre = boton de abrir */}
-            <button
-              type="button"
-              onClick={tocar}
-              aria-label="Abrir invitacion"
-              disabled={abriendo}
-              className="absolute left-1/2 flex size-16 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:hover:scale-100"
-              style={{
-                top: '55%',
-                transform: `translate(-50%, -50%) translateZ(4px) scale(${abriendo ? 1.5 : 1}) rotate(${abriendo ? 14 : 0}deg)`,
-                opacity: abriendo ? 0 : 1,
-                transition: 'transform 420ms ease-out, opacity 380ms ease-out',
-                background:
-                  'radial-gradient(circle at 34% 28%, #c8a165 0%, #a8804f 45%, #8a6a45 100%)',
-                boxShadow: '0 6px 14px -4px rgba(90,70,45,0.6), inset 0 1px 2px rgba(255,255,255,0.4)',
-              }}
+            {/* Lacre = boton de abrir. Se "revienta" con un destello antes de desaparecer. */}
+            <div
+              className="absolute left-1/2 flex items-center justify-center"
+              style={{ top: '55%', transform: 'translate(-50%, -50%) translateZ(4px)' }}
             >
-              <span className="whitespace-nowrap font-script text-lg leading-none">{monograma}</span>
-            </button>
+              {selloRoto && (
+                <span
+                  className="pointer-events-none absolute rounded-full"
+                  style={{
+                    inset: 0,
+                    background: 'radial-gradient(circle, rgba(255,244,214,0.9), rgba(255,244,214,0) 70%)',
+                    animation: 'destello-lacre 420ms ease-out forwards',
+                  }}
+                />
+              )}
+              <button
+                type="button"
+                onClick={tocar}
+                aria-label="Abrir invitacion"
+                disabled={selloRoto}
+                className="relative flex size-16 items-center justify-center text-white shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:hover:scale-100"
+                style={{
+                  borderRadius: '46% 54% 58% 42% / 48% 44% 56% 52%',
+                  background:
+                    'radial-gradient(circle at 32% 26%, #ddb679 0%, #b8863f 40%, #8a6027 78%, #6e4a1e 100%)',
+                  boxShadow:
+                    'inset 0 2px 3px rgba(255,255,255,0.55), inset 0 -3px 7px rgba(0,0,0,0.35), 0 8px 16px -6px rgba(60,40,15,0.6)',
+                  transform: selloRoto ? 'scale(0.35) rotate(28deg)' : 'scale(1) rotate(0deg)',
+                  opacity: selloRoto ? 0 : 1,
+                  transition: 'transform 340ms cubic-bezier(0.36, 0, 0.66, -0.4), opacity 300ms ease-in',
+                }}
+              >
+                <span className="whitespace-nowrap font-script text-lg leading-none">{monograma}</span>
+              </button>
+            </div>
 
-            {/* Particulas doradas, solo mientras se abre */}
-            {abriendo &&
+            {/* Particulas doradas, durante la apertura */}
+            {conParticulas &&
               particulas.map((p) => (
                 <span
                   key={p.id}
@@ -232,15 +308,60 @@ export function Sobre({
 
         <p
           className="respira mt-8 text-[11px] uppercase tracking-[0.3em] text-[#a8804f]"
-          style={{ opacity: abriendo ? 0 : undefined, transition: 'opacity 300ms' }}
+          style={{ opacity: selloRoto ? 0 : undefined, transition: 'opacity 300ms' }}
         >
           Toca el sello para abrir
         </p>
-        {frase && !abriendo && (
-          <p className="mt-1 font-serif text-sm italic text-[#9a8a76]">{frase}</p>
-        )}
+        {frase && !selloRoto && <p className="mt-1 font-serif text-sm italic text-[#9a8a76]">{frase}</p>}
       </div>
+
+      <style>{`
+        @keyframes destello-lacre {
+          0% { opacity: 0; transform: scale(0.5); }
+          35% { opacity: 1; }
+          100% { opacity: 0; transform: scale(2.4); }
+        }
+      `}</style>
     </div>
+  )
+}
+
+/** Un lado del moño: un lazo asimetrico via border-radius, no una imagen. */
+function LazoLado({
+  color,
+  borde,
+  espejado = false,
+}: {
+  color: string
+  borde: string
+  espejado?: boolean
+}) {
+  return (
+    <div
+      className="h-6 w-8"
+      style={{
+        background: `linear-gradient(${espejado ? 135 : 45}deg, ${color}, ${borde})`,
+        borderRadius: espejado ? '90% 10% 60% 40%' : '10% 90% 40% 60%',
+        transform: `rotate(${espejado ? 8 : -8}deg)`,
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.4)',
+      }}
+    />
+  )
+}
+
+/** Una cola del moño, con la V clasica en la punta. */
+function Cola({ color, espejada = false }: { color: string; espejada?: boolean }) {
+  return (
+    <div
+      className="h-7 w-2.5"
+      style={{
+        background: color,
+        clipPath: espejada
+          ? 'polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%)'
+          : 'polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%)',
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.35)',
+      }}
+    />
   )
 }
 
