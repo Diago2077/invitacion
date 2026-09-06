@@ -267,6 +267,7 @@ export interface TotalesReporte {
 }
 
 export interface FilaReporte {
+  token: string
   nombre_grupo: string
   estado: EstadoInvitacion
   modo_pases: ModoPases
@@ -281,7 +282,7 @@ export interface FilaReporte {
 }
 
 export interface RespuestaReporte {
-  evento: Pick<EventoPublico, 'nombre' | 'tipo' | 'fecha_evento' | 'confirmar_hasta' | 'estado'>
+  evento: Pick<EventoPublico, 'nombre' | 'tipo' | 'slug' | 'fecha_evento' | 'confirmar_hasta' | 'estado'>
   totales: TotalesReporte
   invitaciones: FilaReporte[]
 }

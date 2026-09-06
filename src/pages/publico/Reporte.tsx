@@ -1,18 +1,20 @@
-import { Download, RefreshCw } from 'lucide-react'
+import { Copy, Download, MessageCircle, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Cargando } from '@/components/ui/estado'
 import { Input, Select } from '@/components/ui/field'
 import { useReportePublico } from '@/hooks/usePublico'
+import { copiar, linkWhatsapp, urlInvitacion } from '@/lib/compartir'
 import {
   ESTADO_INVITACION_LABEL,
   type EstadoInvitacion,
   type FilaReporte,
 } from '@/lib/database.types'
 import { descargarCsv } from '@/lib/exportar'
-import { formatFecha, formatFechaHora, normalizar } from '@/lib/format'
+import { formatFecha, formatFechaHora, formatFechaLarga, normalizar } from '@/lib/format'
 
 const TONO: Record<EstadoInvitacion, 'success' | 'neutral' | 'warning' | 'danger'> = {
   confirmado: 'success',
@@ -79,6 +81,23 @@ export default function Reporte() {
     descargarCsv(`confirmaciones-${normalizar(evento.nombre).replace(/\s+/g, '-')}`, filasCsv)
   }
 
+  function mensajeInvitado(f: FilaReporte): string {
+    const fecha = formatFechaLarga(evento.fecha_evento)
+    return [
+      `Hola ${f.nombre_grupo}!`,
+      '',
+      `Te reenviamos el link para confirmar tu asistencia a ${evento.nombre}${fecha ? `, el ${fecha}` : ''}:`,
+      '',
+      urlInvitacion(evento, f.token),
+    ].join('\n')
+  }
+
+  async function copiarLinkInvitado(f: FilaReporte) {
+    const ok = await copiar(urlInvitacion(evento, f.token))
+    if (ok) toast.success('Link copiado')
+    else toast.error('No se pudo copiar. Seleccioná el texto y copialo a mano.')
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -138,6 +157,7 @@ export default function Reporte() {
                 <th className="px-4 py-2.5 font-medium">Personas</th>
                 <th className="px-4 py-2.5 font-medium">Estado</th>
                 <th className="px-4 py-2.5 font-medium">Respondio</th>
+                <th className="px-4 py-2.5 font-medium">Compartir</th>
               </tr>
             </thead>
             <tbody>
@@ -166,6 +186,32 @@ export default function Reporte() {
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
                     {f.confirmado_at ? formatFechaHora(f.confirmado_at) : '—'}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Copiar link de esta invitacion"
+                        onClick={() => copiarLinkInvitado(f)}
+                      >
+                        <Copy />
+                      </Button>
+                      {(() => {
+                        const wa = linkWhatsapp(f.telefono, mensajeInvitado(f))
+                        return wa ? (
+                          <a
+                            href={wa}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            title="Reenviar por WhatsApp"
+                            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          >
+                            <MessageCircle className="size-4" />
+                          </a>
+                        ) : null
+                      })()}
+                    </div>
                   </td>
                 </tr>
               ))}
